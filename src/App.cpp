@@ -27,8 +27,13 @@ void App::init() {
         glfwTerminate();
         exit(-1);
     }
+    void key_callback(GLFWwindow * window, int key, int scancode, int action, int mods) {
+        if (key == GLFW_KEY_E && action == GLFW_PRESS)
+            currentState = !currentState;
+    }
 
     glfwMakeContextCurrent(window);
+    glfwSetKeyCallback(window, key_callback);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cerr << "Error iniciando GLAD\n";
