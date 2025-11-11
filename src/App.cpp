@@ -27,20 +27,18 @@ void App::init() {
         glfwTerminate();
         exit(-1);
     }
-    void key_callback(GLFWwindow * window, int key, int scancode, int action, int mods) {
-        if (key == GLFW_KEY_E && action == GLFW_PRESS)
-            currentState = !currentState;
+  /*  void key_callback(GLFWwindow * window, int key, int scancode, int action, int mods) {
+        if (key == GLFW_KEY_E && action == GLFW_PRESS) { currentState = !currentState; }
     }
-
+    glfwSetKeyCallback(window, key_callback);*/
     glfwMakeContextCurrent(window);
-    glfwSetKeyCallback(window, key_callback);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cerr << "Error iniciando GLAD\n";
         exit(-1);
     }
 
-    glViewport(0, 0, 800, 600);
+    glViewport(0, 0, 800, 800);
 
     initShaders();
     initTriangle();
@@ -87,14 +85,14 @@ void App::initShaders() {
         std::cerr << "Error compilando Fragment Shader:\n" << infoLog << "\n";
     }
 
-    shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
+    shaderProgram1 = glCreateProgram();
+    glAttachShader(shaderProgram1, vertexShader);
+    glAttachShader(shaderProgram1, fragmentShader);
+    glLinkProgram(shaderProgram1);
 
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+    glGetProgramiv(shaderProgram1, GL_LINK_STATUS, &success);
     if (!success) {
-        glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
+        glGetProgramInfoLog(shaderProgram1, 512, nullptr, infoLog);
         std::cerr << "Error linkeando Shader Program:\n" << infoLog << "\n";
     }
 
@@ -103,7 +101,7 @@ void App::initShaders() {
 }
 
 void App::initTriangle() {
-    float vertices[] = {
+    /*float vertices[] = {
          0.0f,  0.5f, 0.0f,
         -0.5f, -0.5f, 0.0f,
          0.5f, -0.5f, 0.0f
@@ -111,6 +109,16 @@ void App::initTriangle() {
 
     unsigned int indices[] = {
         0, 1, 2
+    };*/
+    float vertices[] = {
+     0.5f,  0.5f, 0.0f,  /* top right*/ 1.f, 0.f, 0.f,
+     0.5f, -0.5f, 0.0f,  /* bottom right*/ 0.f, 1.f, 0.f,
+    -0.5f, -0.5f, 0.0f,  /* bottom left*/ 0.f, 0.f, 1.f,
+    -0.5f,  0.5f, 0.0f,   /* top left */ 1.f, 0.f, 1.f
+    };
+    unsigned int indices[] = {  // note that we start from 0!
+        0, 1, 3,   // first triangle
+        1, 2, 3    // second triangle
     };
 
     glGenVertexArrays(1, &VAO);
@@ -124,8 +132,14 @@ void App::initTriangle() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    /*glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);*/
+    // position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
+    // color attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
 
     glBindVertexArray(0);
 }
@@ -135,13 +149,20 @@ void App::run() {
 }
 
 void App::mainLoop() {
+    float velx = 0.75;
+    float vely = -0.75;
     while (!glfwWindowShouldClose(window)) {
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        glUseProgram(shaderProgram);
+        glUseProgram(shaderProgram1);
+
+        float timeValue = glfwGetTime();
+        
+        int vertexColorLocation = glGetUniformLocation(shaderProgram1, "positions");
+        void glUniform3f(0, 1, 1, 1);
         glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, 9, GL_UNSIGNED_INT, 0);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -152,7 +173,7 @@ void App::cleanup() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
-    glDeleteProgram(shaderProgram);
+    glDeleteProgram(shaderProgram1);
 
     glfwDestroyWindow(window);
     glfwTerminate();

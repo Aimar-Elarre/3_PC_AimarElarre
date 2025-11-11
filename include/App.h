@@ -13,7 +13,8 @@ public:
 private:
     GLFWwindow* window;
 
-    unsigned int VBO, EBO, VAO, shaderProgram;
+    unsigned int VBO, EBO, VAO, shaderProgram1;
+    //unsigned int  shderProgram2;
     int currentState = 1;
     void init();
     void mainLoop();
