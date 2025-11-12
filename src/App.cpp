@@ -1,4 +1,6 @@
 #include "App.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -27,7 +29,7 @@ void App::init() {
         glfwTerminate();
         exit(-1);
     }
-  /*  void key_callback(GLFWwindow * window, int key, int scancode, int action, int mods) {
+    /*  void key_callback(GLFWwindow * window, int key, int scancode, int action, int mods) {
         if (key == GLFW_KEY_E && action == GLFW_PRESS) { currentState = !currentState; }
     }
     glfwSetKeyCallback(window, key_callback);*/
@@ -54,6 +56,22 @@ std::string App::loadShaderSource(const std::string& path) {
     std::stringstream buffer;
     buffer << file.rdbuf();
     return buffer.str();
+}
+void App::initTextures() {
+    int width, height, nrChannels;
+    unsigned char* data = stbi_load("C:/Users/AimarElarreLópez/Downloads/Proyecto/3_PC_AimarElarre/Assets/Textures/textures-1.jpg", &width, &height, &nrChannels, 0);
+    glGenTextures(1, &textureID);    // Genera la texture en GPU
+    glBindTexture(GL_TEXTURE_2D, textureID); // Setea la textura como textura activa
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);// Seteamos los parametros de la texture 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data); // Seteamos la data de la textura
+    glGenerateMipmap(GL_TEXTURE_2D); //Generamos el mimap de la textura
+    glActiveTexture(GL_TEXTURE0); // activate the texture unit first before binding texture
+    glBindTexture(GL_TEXTURE_2D, textureID); // Set texture to sampler 0
+
 }
 
 void App::initShaders() {
@@ -151,6 +169,9 @@ void App::run() {
 void App::mainLoop() {
     float velx = 0.75;
     float vely = -0.75;
+    float posx = 0;
+    float posy = 0;
+
     while (!glfwWindowShouldClose(window)) {
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -158,9 +179,16 @@ void App::mainLoop() {
         glUseProgram(shaderProgram1);
 
         float timeValue = glfwGetTime();
-        
+        if (posx + timeValue * velx < 0 || posy + timeValue * vely > 1)
+        {
+            velx = velx * -1;
+        }
+        if (posy + timeValue * vely < 0 || posy + timeValue * vely > 1)
+        {
+            vely = vely * -1;
+        }
         int vertexColorLocation = glGetUniformLocation(shaderProgram1, "positions");
-        void glUniform3f(0, 1, 1, 1);
+        glUniform3f(0, posx +timeValue * velx, posy + timeValue * vely, 0);
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 9, GL_UNSIGNED_INT, 0);
 

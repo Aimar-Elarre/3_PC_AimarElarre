@@ -14,6 +14,7 @@ private:
     GLFWwindow* window;
 
     unsigned int VBO, EBO, VAO, shaderProgram1;
+    unsigned int textureID;
     //unsigned int  shderProgram2;
     int currentState = 1;
     void init();
@@ -23,5 +24,6 @@ private:
     void keyCalback(GLFWwindow* window, int key, int scancode, int action, int mods);
     void initTriangle();
     void initShaders();
+    void initTextures();
     std::string loadShaderSource(const std::string& path);
 };
