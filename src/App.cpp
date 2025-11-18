@@ -44,6 +44,7 @@ void App::init() {
 
     initShaders();
     initTriangle();
+    initTextures();
 }
 
 std::string App::loadShaderSource(const std::string& path) {
@@ -59,7 +60,7 @@ std::string App::loadShaderSource(const std::string& path) {
 }
 void App::initTextures() {
     int width, height, nrChannels;
-    unsigned char* data = stbi_load("C:/Users/AimarElarreLópez/Downloads/Proyecto/3_PC_AimarElarre/Assets/Textures/textures-1.jpg", &width, &height, &nrChannels, 0);
+    unsigned char* data = stbi_load("../Assets/Textures/rocky_terrain_02_diff_4k.jpg", &width, &height, &nrChannels, 0);
     glGenTextures(1, &textureID);    // Genera la texture en GPU
     glBindTexture(GL_TEXTURE_2D, textureID); // Setea la textura como textura activa
 
@@ -129,10 +130,10 @@ void App::initTriangle() {
         0, 1, 2
     };*/
     float vertices[] = {
-     0.5f,  0.5f, 0.0f,  /* top right*/ 1.f, 0.f, 0.f,
-     0.5f, -0.5f, 0.0f,  /* bottom right*/ 0.f, 1.f, 0.f,
-    -0.5f, -0.5f, 0.0f,  /* bottom left*/ 0.f, 0.f, 1.f,
-    -0.5f,  0.5f, 0.0f,   /* top left */ 1.f, 0.f, 1.f
+     0.5f,  0.5f, 0.0f,  /* top right*/    1.f, 0.f, 0.f,      1.f, 1.f,
+     0.5f, -0.5f, 0.0f,  /* bottom right*/ 0.f, 1.f, 0.f,      1.f, 0.f,
+    -0.5f, -0.5f, 0.0f,  /* bottom left*/  0.f, 0.f, 1.f,      0.f, 0.f,
+    -0.5f,  0.5f, 0.0f,   /* top left */   1.f, 0.f, 1.f,      0.f, 1.f
     };
     unsigned int indices[] = {  // note that we start from 0!
         0, 1, 3,   // first triangle
@@ -150,14 +151,15 @@ void App::initTriangle() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-    /*glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);*/
     // position attribute
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
     // color attribute
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+    // UV attribute
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
 
     glBindVertexArray(0);
 }
@@ -178,17 +180,17 @@ void App::mainLoop() {
 
         glUseProgram(shaderProgram1);
 
-        float timeValue = glfwGetTime();
-        if (posx + timeValue * velx < 0 || posy + timeValue * vely > 1)
-        {
-            velx = velx * -1;
-        }
-        if (posy + timeValue * vely < 0 || posy + timeValue * vely > 1)
-        {
-            vely = vely * -1;
-        }
+        //float timeValue = glfwGetTime();
+        //if (posx + timeValue * velx < 0 || posy + timeValue * vely > 1)
+        //{
+        //    velx = velx * -1;
+        //}
+        //if (posy + timeValue * vely < 0 || posy + timeValue * vely > 1)
+        //{
+        //    vely = vely * -1;
+        //}
         int vertexColorLocation = glGetUniformLocation(shaderProgram1, "positions");
-        glUniform3f(0, posx +timeValue * velx, posy + timeValue * vely, 0);
+        /*glUniform3f(0, posx +timeValue * velx, posy + timeValue * vely, 0);*/
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 9, GL_UNSIGNED_INT, 0);
 
