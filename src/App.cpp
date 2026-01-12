@@ -148,7 +148,7 @@ void App::initExternalModel() {
 void App::plantTrees() {
     srand(1234);
     treePositions.clear();
-    int numberOfTrees = 200;
+    int numberOfTrees = 20000;
 
     float minX = -(terrainWidth / 2.0f) + 20.0f;
     float maxX = (terrainWidth / 2.0f) - 20.0f;
