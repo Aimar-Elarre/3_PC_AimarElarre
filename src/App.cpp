@@ -14,10 +14,16 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-// --- CALLBACK GLOBAL ---
+// --- CALLBACKS GLOBALES ---
 void glfw_mouse_callback(GLFWwindow* window, double xpos, double ypos) {
     App* app = (App*)glfwGetWindowUserPointer(window);
     if (app) app->mouse_callback(xpos, ypos);
+}
+
+// NUEVO: Callback para la rueda del ratón (Zoom)
+void glfw_scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+    App* app = (App*)glfwGetWindowUserPointer(window);
+    if (app) app->scroll_callback(xoffset, yoffset);
 }
 
 App::App() { init(); }
@@ -37,7 +43,10 @@ void App::init() {
 
     glfwMakeContextCurrent(window);
     glfwSetWindowUserPointer(window, this);
+
+    // Configuración de Callbacks
     glfwSetCursorPosCallback(window, glfw_mouse_callback);
+    glfwSetScrollCallback(window, glfw_scroll_callback); // <--- NUEVO: REGISTRO DE LA RUEDA
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) exit(-1);
@@ -66,6 +75,13 @@ void App::init() {
 
     // 3. Cargamos y colocamos el castillo (NUEVO)
     initCastle();
+}
+
+// --- NUEVO: IMPLEMENTACIÓN DEL ZOOM ---
+void App::scroll_callback(double xoffset, double yoffset) {
+    if (camera) {
+        camera->ProcessMouseScroll(static_cast<float>(yoffset));
+    }
 }
 
 // --- PARSER OBJ ---
@@ -158,7 +174,7 @@ void App::plantTrees() {
         float rZ = minZ + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (maxZ - minZ)));
         float y = getHeightAt(rX, rZ) + 2.5f;
 
-        // Zonas válidas: No bajo el agua (-3) y no muy alto (12) para no chocar con el castillo
+        // Zonas válidas: No bajo el agua (-3) y no muy alto (15) para no chocar con el castillo
         if (y > -3.0f && y < 15.0f) {
             treePositions.push_back(glm::vec3(rX, y, rZ));
         }
@@ -168,7 +184,7 @@ void App::plantTrees() {
     }
 }
 
-// --- NUEVO: INICIALIZAR CASTILLO ---
+// --- INICIALIZAR CASTILLO ---
 void App::initCastle() {
     // 1. Cargar el modelo
     std::vector<float> castleVertices;
@@ -187,7 +203,7 @@ void App::initCastle() {
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float))); glEnableVertexAttribArray(2);
     glBindVertexArray(0);
 
-    // 2. ALGORITMO: BUSCAR EL PUNTO MÁS ALTO (CIMA)
+    // 2. BUSCAR EL PUNTO MÁS ALTO (CIMA)
     float maxY = -99999.0f;
 
     // Recorremos todo el mapa de alturas
@@ -208,17 +224,16 @@ void App::initCastle() {
     std::cout << "Cima encontrada en: " << castlePosition.x << ", " << castlePosition.y << ", " << castlePosition.z << "\n";
 }
 
-// --- NUEVO: DIBUJAR CASTILLO ---
+// --- DIBUJAR CASTILLO ---
 void App::drawCastle(glm::mat4 view, glm::mat4 projection) {
     if (castleVertexCount == 0) return;
 
     glm::mat4 model = glm::mat4(1.0f);
 
     // 1. Colocar en la cima encontrada
-    // Ajuste opcional: castlePosition.y - 1.0f si queda flotando
     model = glm::translate(model, castlePosition);
 
-    // 2. Escala (AJUSTA ESTO SI EL CASTILLO ES MUY GRANDE O PEQUEÑO)
+    // 2. Escala 
     model = glm::scale(model, glm::vec3(0.5f));
 
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram1, "model"), 1, GL_FALSE, glm::value_ptr(model));
@@ -262,7 +277,36 @@ void App::drawModelAt(glm::mat4 view, glm::mat4 projection, glm::vec3 pos) {
     glDrawArrays(GL_TRIANGLES, 0, modelVertexCount);
 }
 
-// --- MAIN LOOP ---
+// --- INPUT & SETUP (CON MEJORAS: SHIFT, Q, E) ---
+void App::mouse_callback(double xposIn, double yposIn) {
+    float xpos = static_cast<float>(xposIn);
+    float ypos = static_cast<float>(yposIn);
+    if (firstMouse) { lastX = xpos; lastY = ypos; firstMouse = false; }
+    float xoffset = xpos - lastX; float yoffset = lastY - ypos;
+    lastX = xpos; lastY = ypos;
+    camera->ProcessMouseMovement(xoffset, yoffset);
+}
+
+void App::processInput(GLFWwindow* window, float deltaTime) {
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
+
+    // --- SPRINT CON SHIFT IZQUIERDO ---
+    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+        camera->MovementSpeed = 40.0f; // Velocidad x2
+    else
+        camera->MovementSpeed = 20.0f; // Velocidad Normal
+
+    // Movimiento Básico (WASD)
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera->ProcessKeyboard(FORWARD, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera->ProcessKeyboard(BACKWARD, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera->ProcessKeyboard(LEFT, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camera->ProcessKeyboard(RIGHT, deltaTime);
+
+    // --- VOLAR ARRIBA (E) Y ABAJO (Q) ---
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) camera->ProcessKeyboard(UP, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) camera->ProcessKeyboard(DOWN, deltaTime);
+}
+
 void App::mainLoop() {
     while (!glfwWindowShouldClose(window)) {
         float currentFrame = glfwGetTime();
@@ -276,7 +320,8 @@ void App::mainLoop() {
 
         glUseProgram(shaderProgram1);
         glm::mat4 view = camera->GetViewMatrix();
-        glm::mat4 projection = camera->GetProjectionMatrix();
+        glm::mat4 projection = camera->GetProjectionMatrix(); // Ahora incluye el ZOOM de la rueda
+
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram1, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram1, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
@@ -300,10 +345,10 @@ void App::mainLoop() {
             drawModelAt(view, projection, pos);
         }
 
-        // 3. DIBUJAR CASTILLO (NUEVO)
+        // 3. DIBUJAR CASTILLO
         drawCastle(view, projection);
 
-        // 4. DIBUJAR AGUA (Al final por la transparencia)
+        // 4. DIBUJAR AGUA
         glUniform1i(glGetUniformLocation(shaderProgram1, "useModelTexture"), false);
         glUniform1i(glGetUniformLocation(shaderProgram1, "useSolidColor"), false);
         glUniform1f(glGetUniformLocation(shaderProgram1, "globalAlpha"), 0.6f);
@@ -328,27 +373,12 @@ void App::cleanup() {
     glfwDestroyWindow(window); glfwTerminate();
 }
 
-// --- INPUT & SETUP (Sin cambios) ---
-void App::mouse_callback(double xposIn, double yposIn) {
-    float xpos = static_cast<float>(xposIn);
-    float ypos = static_cast<float>(yposIn);
-    if (firstMouse) { lastX = xpos; lastY = ypos; firstMouse = false; }
-    float xoffset = xpos - lastX; float yoffset = lastY - ypos;
-    lastX = xpos; lastY = ypos;
-    camera->ProcessMouseMovement(xoffset, yoffset);
-}
-void App::processInput(GLFWwindow* window, float deltaTime) {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera->ProcessKeyboard(FORWARD, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera->ProcessKeyboard(BACKWARD, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera->ProcessKeyboard(LEFT, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camera->ProcessKeyboard(RIGHT, deltaTime);
-}
 std::string App::loadShaderSource(const std::string& path) {
     std::ifstream file(path);
     if (!file.is_open()) return "";
     std::stringstream buffer; buffer << file.rdbuf(); return buffer.str();
 }
+
 void App::initShaders() {
     std::string vC = loadShaderSource("../shaders/basic.vs");
     std::string fC = loadShaderSource("../shaders/basic.fs");
@@ -358,6 +388,7 @@ void App::initShaders() {
     shaderProgram1 = glCreateProgram(); glAttachShader(shaderProgram1, vShader); glAttachShader(shaderProgram1, fShader); glLinkProgram(shaderProgram1);
     glDeleteShader(vShader); glDeleteShader(fShader);
 }
+
 unsigned int App::loadTexture(const char* path) {
     unsigned int tID; glGenTextures(1, &tID);
     int w, h, c; unsigned char* data = stbi_load(path, &w, &h, &c, 0);
@@ -372,11 +403,13 @@ unsigned int App::loadTexture(const char* path) {
     }
     return tID;
 }
+
 void App::initTextures() {
     textureRockID = loadTexture("../Assets/Textures/rocky_terrain_02_diff_4k.jpg");
     textureGrassID = loadTexture("../Assets/Textures/grass.jpg");
     textureWaterID = loadTexture("../Assets/Textures/water.jpg");
 }
+
 void App::initTerrain() {
     int nrChannels; unsigned char* data = stbi_load("../Assets/Textures/heightmap.png", &terrainWidth, &terrainHeight, &nrChannels, 0);
     if (!data) return;
@@ -417,8 +450,9 @@ void App::initTerrain() {
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float))); glEnableVertexAttribArray(2);
     glBindVertexArray(0);
 }
+
 void App::initWater() {
-    float wh = -100.0f, s = 10000.0f;
+    float wh = -99.0f, s = 10000.0f;
     float wv[] = { -s,wh,-s,0,1,0,0,s / 2,-s,wh,s,0,1,0,0,0,s,wh,-s,0,1,0,s / 2,s / 2,s,wh,-s,0,1,0,s / 2,s / 2,-s,wh,s,0,1,0,0,0,s,wh,s,0,1,0,s / 2,0 };
     glGenVertexArrays(1, &waterVAO); glGenBuffers(1, &waterVBO);
     glBindVertexArray(waterVAO); glBindBuffer(GL_ARRAY_BUFFER, waterVBO);
