@@ -20,7 +20,6 @@ void glfw_mouse_callback(GLFWwindow* window, double xpos, double ypos) {
     if (app) app->mouse_callback(xpos, ypos);
 }
 
-// NUEVO: Callback para la rueda del ratón (Zoom)
 void glfw_scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
     App* app = (App*)glfwGetWindowUserPointer(window);
     if (app) app->scroll_callback(xoffset, yoffset);
@@ -38,15 +37,14 @@ void App::init() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    window = glfwCreateWindow(800, 600, "OpenGL - Isla con Castillo", nullptr, nullptr);
+    window = glfwCreateWindow(800, 600, "OpenGL - Proyecto Final (Agua Animada)", nullptr, nullptr);
     if (!window) { glfwTerminate(); exit(-1); }
 
     glfwMakeContextCurrent(window);
     glfwSetWindowUserPointer(window, this);
 
-    // Configuración de Callbacks
     glfwSetCursorPosCallback(window, glfw_mouse_callback);
-    glfwSetScrollCallback(window, glfw_scroll_callback); // <--- NUEVO: REGISTRO DE LA RUEDA
+    glfwSetScrollCallback(window, glfw_scroll_callback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) exit(-1);
@@ -56,7 +54,6 @@ void App::init() {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Voltear texturas al cargar
     stbi_set_flip_vertically_on_load(true);
 
     camera = new Camera(glm::vec3(0.0f, 40.0f, 100.0f));
@@ -65,26 +62,17 @@ void App::init() {
     initShaders();
     initTextures();
 
-    // 1. Generamos terreno (Esto llena heightMap)
     initTerrain();
     initWater();
-
-    // 2. Cargamos árboles
     initExternalModel();
     plantTrees();
-
-    // 3. Cargamos y colocamos el castillo (NUEVO)
     initCastle();
 }
 
-// --- NUEVO: IMPLEMENTACIÓN DEL ZOOM ---
 void App::scroll_callback(double xoffset, double yoffset) {
-    if (camera) {
-        camera->ProcessMouseScroll(static_cast<float>(yoffset));
-    }
+    if (camera) camera->ProcessMouseScroll(static_cast<float>(yoffset));
 }
 
-// --- PARSER OBJ ---
 bool App::loadOBJ(const char* path, std::vector<float>& outVertices) {
     std::vector<glm::vec3> temp_vertices;
     std::vector<glm::vec2> temp_uvs;
@@ -143,7 +131,6 @@ bool App::loadOBJ(const char* path, std::vector<float>& outVertices) {
     return true;
 }
 
-// --- ÁRBOLES ---
 void App::initExternalModel() {
     std::vector<float> modelVertices;
     if (!loadOBJ("../Assets/Models/tree.obj", modelVertices)) return;
@@ -161,9 +148,8 @@ void App::initExternalModel() {
 void App::plantTrees() {
     srand(1234);
     treePositions.clear();
-    int numberOfTrees = 80;
+    int numberOfTrees = 200;
 
-    // Límites seguros (dejando margen en los bordes)
     float minX = -(terrainWidth / 2.0f) + 20.0f;
     float maxX = (terrainWidth / 2.0f) - 20.0f;
     float minZ = -(terrainHeight / 2.0f) + 20.0f;
@@ -174,7 +160,6 @@ void App::plantTrees() {
         float rZ = minZ + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (maxZ - minZ)));
         float y = getHeightAt(rX, rZ) + 2.5f;
 
-        // Zonas válidas: No bajo el agua (-3) y no muy alto (15) para no chocar con el castillo
         if (y > -3.0f && y < 15.0f) {
             treePositions.push_back(glm::vec3(rX, y, rZ));
         }
@@ -184,9 +169,7 @@ void App::plantTrees() {
     }
 }
 
-// --- INICIALIZAR CASTILLO ---
 void App::initCastle() {
-    // 1. Cargar el modelo
     std::vector<float> castleVertices;
     if (!loadOBJ("../Assets/Models/castle.obj", castleVertices)) {
         std::cout << "AVISO: No se encontro castle.obj\n";
@@ -203,10 +186,8 @@ void App::initCastle() {
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float))); glEnableVertexAttribArray(2);
     glBindVertexArray(0);
 
-    // 2. BUSCAR EL PUNTO MÁS ALTO (CIMA)
     float maxY = -99999.0f;
 
-    // Recorremos todo el mapa de alturas
     for (int i = 0; i < terrainHeight; i++) {
         for (int j = 0; j < terrainWidth; j++) {
             int index = (i * terrainWidth) + j;
@@ -214,7 +195,6 @@ void App::initCastle() {
 
             if (h > maxY) {
                 maxY = h;
-                // Convertimos índice i,j a coordenadas de mundo X,Z
                 float x = (float)j - (terrainWidth / 2.0f);
                 float z = (float)i - (terrainHeight / 2.0f);
                 castlePosition = glm::vec3(x - 1.2f, maxY - 1.5f, z + 1.0f);
@@ -224,32 +204,22 @@ void App::initCastle() {
     std::cout << "Cima encontrada en: " << castlePosition.x << ", " << castlePosition.y << ", " << castlePosition.z << "\n";
 }
 
-// --- DIBUJAR CASTILLO ---
 void App::drawCastle(glm::mat4 view, glm::mat4 projection) {
     if (castleVertexCount == 0) return;
 
     glm::mat4 model = glm::mat4(1.0f);
-
-    // 1. Colocar en la cima encontrada
     model = glm::translate(model, castlePosition);
-
-    // 2. Escala 
     model = glm::scale(model, glm::vec3(0.5f));
 
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram1, "model"), 1, GL_FALSE, glm::value_ptr(model));
-
-    // 3. Configurar shader para color sólido GRIS
-    glUniform1i(glGetUniformLocation(shaderProgram1, "useModelTexture"), false); // No usar textura
-    glUniform1i(glGetUniformLocation(shaderProgram1, "useSolidColor"), true);    // Usar color sólido
-
-    // Color Gris (R, G, B)
+    glUniform1i(glGetUniformLocation(shaderProgram1, "useModelTexture"), false);
+    glUniform1i(glGetUniformLocation(shaderProgram1, "useSolidColor"), true);
     glUniform3f(glGetUniformLocation(shaderProgram1, "objectColor"), 0.25f, 0.25f, 0.25f);
 
     glBindVertexArray(castleVAO);
     glDrawArrays(GL_TRIANGLES, 0, castleVertexCount);
 }
 
-// --- UTILIDADES ---
 float App::getHeightAt(float x, float z) {
     if (heightMap.empty()) return 0.0f;
     float imgX = x + (terrainWidth / 2.0f);
@@ -261,11 +231,10 @@ float App::getHeightAt(float x, float z) {
 
 void App::drawModelAt(glm::mat4 view, glm::mat4 projection, glm::vec3 pos) {
     glm::mat4 model = glm::mat4(1.0f);
-    // Ajustar altura del árbol
     glm::vec3 posCorregida = pos + glm::vec3(0.0f, 2.0f, 0.0f);
 
     model = glm::translate(model, posCorregida);
-    model = glm::scale(model, glm::vec3(4.0f)); // Tamaño árbol
+    model = glm::scale(model, glm::vec3(4.0f));
 
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram1, "model"), 1, GL_FALSE, glm::value_ptr(model));
     glUniform1i(glGetUniformLocation(shaderProgram1, "useModelTexture"), true);
@@ -277,7 +246,6 @@ void App::drawModelAt(glm::mat4 view, glm::mat4 projection, glm::vec3 pos) {
     glDrawArrays(GL_TRIANGLES, 0, modelVertexCount);
 }
 
-// --- INPUT & SETUP (CON MEJORAS: SHIFT, Q, E) ---
 void App::mouse_callback(double xposIn, double yposIn) {
     float xpos = static_cast<float>(xposIn);
     float ypos = static_cast<float>(yposIn);
@@ -290,19 +258,18 @@ void App::mouse_callback(double xposIn, double yposIn) {
 void App::processInput(GLFWwindow* window, float deltaTime) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
 
-    // --- SPRINT CON SHIFT IZQUIERDO ---
+    // SPRINT
     if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-        camera->MovementSpeed = 40.0f; // Velocidad x2
+        camera->MovementSpeed = 40.0f;
     else
-        camera->MovementSpeed = 20.0f; // Velocidad Normal
+        camera->MovementSpeed = 20.0f;
 
-    // Movimiento Básico (WASD)
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera->ProcessKeyboard(FORWARD, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera->ProcessKeyboard(BACKWARD, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera->ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camera->ProcessKeyboard(RIGHT, deltaTime);
 
-    // --- VOLAR ARRIBA (E) Y ABAJO (Q) ---
+    // VOLAR
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) camera->ProcessKeyboard(UP, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) camera->ProcessKeyboard(DOWN, deltaTime);
 }
@@ -319,13 +286,20 @@ void App::mainLoop() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glUseProgram(shaderProgram1);
+
+        // --- ENVIAR TIEMPO PARA ANIMAR AGUA ---
+        // Obtenemos tiempo actual
+        float timeValue = static_cast<float>(glfwGetTime());
+        glUniform1f(glGetUniformLocation(shaderProgram1, "uTime"), timeValue);
+
         glm::mat4 view = camera->GetViewMatrix();
-        glm::mat4 projection = camera->GetProjectionMatrix(); // Ahora incluye el ZOOM de la rueda
+        glm::mat4 projection = camera->GetProjectionMatrix();
 
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram1, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram1, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
         // 1. DIBUJAR TERRENO
+        glUniform1i(glGetUniformLocation(shaderProgram1, "isWater"), false); // NO es agua
         glUniform1i(glGetUniformLocation(shaderProgram1, "useModelTexture"), false);
         glUniform1i(glGetUniformLocation(shaderProgram1, "useSolidColor"), false);
         glUniform1f(glGetUniformLocation(shaderProgram1, "globalAlpha"), 1.0f);
@@ -349,11 +323,13 @@ void App::mainLoop() {
         drawCastle(view, projection);
 
         // 4. DIBUJAR AGUA
+        glUniform1i(glGetUniformLocation(shaderProgram1, "isWater"), true); // ¡SÍ es agua! (Activa ondas y movimiento)
         glUniform1i(glGetUniformLocation(shaderProgram1, "useModelTexture"), false);
         glUniform1i(glGetUniformLocation(shaderProgram1, "useSolidColor"), false);
         glUniform1f(glGetUniformLocation(shaderProgram1, "globalAlpha"), 0.6f);
+
         glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, textureWaterID);
-        glUniform1i(glGetUniformLocation(shaderProgram1, "textureGrass"), 1);
+        glUniform1i(glGetUniformLocation(shaderProgram1, "textureGrass"), 1); // Usamos slot 1 para el agua
 
         glBindVertexArray(waterVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -368,7 +344,7 @@ void App::cleanup() {
     glDeleteVertexArrays(1, &VAO); glDeleteBuffers(1, &VBO); glDeleteBuffers(1, &EBO);
     glDeleteVertexArrays(1, &waterVAO); glDeleteBuffers(1, &waterVBO);
     glDeleteVertexArrays(1, &modelVAO); glDeleteBuffers(1, &modelVBO);
-    glDeleteVertexArrays(1, &castleVAO); glDeleteBuffers(1, &castleVBO); // Limpiar
+    glDeleteVertexArrays(1, &castleVAO); glDeleteBuffers(1, &castleVBO);
     glDeleteProgram(shaderProgram1);
     glfwDestroyWindow(window); glfwTerminate();
 }
